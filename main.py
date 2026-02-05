@@ -23,39 +23,29 @@ def start(update, context):
 
 def price(update, context):
     try:
-        url = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=XAUUSD=X"
-        headers = {
-            "User-Agent": "Mozilla/5.0",
-            "Accept": "application/json"
-        }
-
-        r = requests.get(url, headers=headers, timeout=10)
+        url = "https://api.metals.live/v1/spot"
+        r = requests.get(url, timeout=10)
 
         if r.status_code != 200:
-            update.message.reply_text("⚠️ Yahoo blocked the request.")
+            update.message.reply_text("⚠️ Price service unavailable.")
             return
 
         data = r.json()
 
-        if "quoteResponse" not in data:
-            update.message.reply_text(
-                "⚠️ Yahoo response format changed.\nTry again later."
-            )
+        # data example: [["gold", 2034.5], ["silver", 22.8]]
+        gold_price = None
+        for item in data:
+            if item[0] == "gold":
+                gold_price = item[1]
+                break
+
+        if gold_price is None:
+            update.message.reply_text("⚠️ Gold price not found.")
             return
 
-        result = data["quoteResponse"].get("result", [])
-
-        if not result:
-            update.message.reply_text("⚠️ Gold price not available.")
-            return
-
-        price = result[0].get("regularMarketPrice")
-
-        if price is None:
-            update.message.reply_text("⚠️ Price missing in response.")
-            return
-
-        update.message.reply_text(f"🟡 Gold Price (US): ${price}")
+        update.message.reply_text(
+            f"🟡 Gold Price (US Spot)\n💵 ${gold_price}"
+        )
 
     except Exception as e:
         update.message.reply_text(f"❌ Error:\n{e}")
