@@ -6,7 +6,11 @@ TOKEN = os.environ.get("BOT_TOKEN")
 
 def get_gold_price():
     url = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=XAUUSD=X"
-    data = requests.get(url).json()
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+    r = requests.get(url, headers=headers, timeout=10)
+    data = r.json()
     return data["quoteResponse"]["result"][0]["regularMarketPrice"]
 
 def start(update, context):
