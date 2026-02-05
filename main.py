@@ -26,7 +26,6 @@ def get_gold_price():
 
     url = "https://api.metals.live/v1/spot/gold"
     headers = {"User-Agent": "Mozilla/5.0"}
-
     r = requests.get(url, headers=headers, timeout=10)
     data = r.json()[0]
 
@@ -39,7 +38,6 @@ def get_silver_price():
 
     url = "https://api.metals.live/v1/spot/silver"
     headers = {"User-Agent": "Mozilla/5.0"}
-
     r = requests.get(url, headers=headers, timeout=10)
     data = r.json()[0]
 
@@ -53,12 +51,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "👋 Welcome!\n"
         "I track US gold & silver prices.\n\n"
         "Commands:\n"
-        "/price – Gold price\n h"
-        "/silver – Silver price"
+        "/gold – Current gold price\n"
+        "/silver – Current silver price"
     )
 
 
-async def price(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def gold(update: Update, context: ContextTypes.DEFAULT_TYPE):
     price, ch, chp = get_gold_price()
     if price is None:
         await update.message.reply_text("❌ API key not set.")
@@ -84,17 +82,23 @@ async def silver(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # =========================
-# DAILY ALERT JOB
+# DAILY ALERT (GOLD + SILVER)
 # =========================
-async def daily_gold_alert(context: ContextTypes.DEFAULT_TYPE):
-    price, ch, chp = get_gold_price()
-    if price is None:
+async def daily_metals_alert(context: ContextTypes.DEFAULT_TYPE):
+    gold_price, gold_ch, gold_chp = get_gold_price()
+    silver_price, silver_ch, silver_chp = get_silver_price()
+
+    if gold_price is None or silver_price is None:
         return
 
     msg = (
-        "⏰ Daily Gold Update\n"
-        f"💰 ${price}\n"
-        f"↕️ 24h Change: {ch} ({chp}%)"
+        "⏰ Daily Metals Update\n\n"
+        f"🟡 Gold\n"
+        f"💰 ${gold_price}\n"
+        f"↕️ {gold_ch} ({gold_chp}%)\n\n"
+        f"⚪ Silver\n"
+        f"💰 ${silver_price}\n"
+        f"↕️ {silver_ch} ({silver_chp}%)"
     )
 
     await context.bot.send_message(chat_id=CHAT_ID, text=msg)
@@ -106,12 +110,12 @@ def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("price", price))
+    app.add_handler(CommandHandler("gold", gold))
     app.add_handler(CommandHandler("silver", silver))
 
     # Daily alert at 9 AM IST
     app.job_queue.run_daily(
-        daily_gold_alert,
+        daily_metals_alert,
         time=time(hour=9, minute=0, tzinfo=pytz.timezone("Asia/Kolkata")),
     )
 
