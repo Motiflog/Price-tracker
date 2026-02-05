@@ -1,108 +1,124 @@
+import os
+import requests
+from datetime import time
+import pytz
 
-def get_silver_price():
-    api_key = os.getenv("GOLDAPI_KEY")
-    if not api_key:
+from telegram import Update
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    ContextTypes,
+)
+
+# =========================
+# CONFIG
+# =========================
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+METALS_API_KEY = os.getenv("METALS_API_KEY")
+CHAT_ID = os.getenv("CHAT_ID")
+
+# =========================
+# PRICE FETCHERS
+# =========================
+def get_gold_price():
+    if not METALS_API_KEY:
         return None, None, None
 
-    url = "https://www.goldapi.io/api/XAG/USD"
-    headers = {"x-access-token": api_key}
+    url = "https://api.metals.live/v1/spot/gold"
+    headers = {"User-Agent": "Mozilla/5.0"}
 
     r = requests.get(url, headers=headers, timeout=10)
-    data = r.json()
-    
-import os
+    data = r.json()[0]
+
     return data["price"], data["ch"], data["chp"]
-import requests
-from telegram.ext import Updater, CommandHandler
 
-TOKEN = os.environ.get("BOT_TOKEN")
 
-def get_gold_price():
-    url = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=XAUUSD=X"
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+def get_silver_price():
+    if not METALS_API_KEY:
+        return None, None, None
+
+    url = "https://api.metals.live/v1/spot/silver"
+    headers = {"User-Agent": "Mozilla/5.0"}
+
     r = requests.get(url, headers=headers, timeout=10)
-    data = r.json()
-    return data["quoteResponse"]["result"][0]["regularMarketPrice"]
+    data = r.json()[0]
 
-def start(update, context):
-    update.message.reply_text(
+    return data["price"], data["ch"], data["chp"]
+
+# =========================
+# COMMAND HANDLERS
+# =========================
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
         "👋 Welcome!\n"
-        "I track US gold price.\n\n"
+        "I track US gold & silver prices.\n\n"
         "Commands:\n"
-        "/price - Current gold price"
+        "/price – Gold price\n h"
+        "/silver – Silver price"
     )
- def silver(update, context):
-    price, change, change_pct = get_silver_price()
 
+
+async def price(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    price, ch, chp = get_gold_price()
     if price is None:
-        update.message.reply_text("❌ API key not set.")
+        await update.message.reply_text("❌ API key not set.")
         return
 
-    msg = (
-        "🥈 Silver Price (US)\n"
-        f"💲 {price}\n"
-        f"↕️ 24h Change: {change} ({change_pct}%)"
+    await update.message.reply_text(
+        f"🟡 Gold Price (US)\n"
+        f"💰 ${price}\n"
+        f"↕️ 24h Change: {ch} ({chp}%)"
     )
 
-    update.message.reply_text(msg)
 
-def price(update, context):
-    try:
-        api_key = os.environ.get("GOLDAPI_KEY")
-        if not api_key:
-            update.message.reply_text("❌ API key not set.")
-            return
+async def silver(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    price, ch, chp = get_silver_price()
+    if price is None:
+        await update.message.reply_text("❌ API key not set.")
+        return
 
-        url = "https://www.goldapi.io/api/XAU/USD"
-        headers = {
-            "x-access-token": api_key,
-            "Content-Type": "application/json"
-        }
+    await update.message.reply_text(
+        f"⚪ Silver Price (US)\n"
+        f"💰 ${price}\n"
+        f"↕️ 24h Change: {ch} ({chp}%)"
+    )
 
-        r = requests.get(url, headers=headers, timeout=10)
-
-        if r.status_code != 200:
-            update.message.reply_text("⚠️ Price service unavailable.")
-            return
-
-        data = r.json()
-
-        price = data.get("price")
-        change = data.get("ch")
-        change_pct = data.get("chp")
-
-        msg = (
-            f"🟡 Gold Price (US)\n"
-            f"💵 ${price}\n"
-            f"📉 24h Change: {change} ({change_pct}%)"
-        )
-
-        update.message.reply_text(msg)
-
-    except Exception as e:
-        update.message.reply_text(f"❌ Error:\n{e}")
-
-updater = Updater(TOKEN, use_context=True)
-dp = updater.dispatcher
-
-dp.add_handler(CommandHandler("start", start))
-dp.add_handler(CommandHandler("price", price))
-dp.add_handler(CommandHandler("silver", silver))
-
-def daily_gold_alert(context):
-    price, change, change_pct = get_gold_price()
+# =========================
+# DAILY ALERT JOB
+# =========================
+async def daily_gold_alert(context: ContextTypes.DEFAULT_TYPE):
+    price, ch, chp = get_gold_price()
     if price is None:
         return
 
     msg = (
         "⏰ Daily Gold Update\n"
         f"💰 ${price}\n"
-        f"↕️ 24h Change: {change} ({change_pct}%)"
+        f"↕️ 24h Change: {ch} ({chp}%)"
     )
 
-    context.bot.send_message(chat_id=YOUR_CHAT_ID, text=msg)
+    await context.bot.send_message(chat_id=CHAT_ID, text=msg)
 
-updater.start_polling()
-updater.idle()
+# =========================
+# APP SETUP
+# =========================
+def main():
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("price", price))
+    app.add_handler(CommandHandler("silver", silver))
+
+    # Daily alert at 9 AM IST
+    app.job_queue.run_daily(
+        daily_gold_alert,
+        time=time(hour=9, minute=0, tzinfo=pytz.timezone("Asia/Kolkata")),
+    )
+
+    app.run_polling()
+
+# =========================
+# ENTRY POINT
+# =========================
+if __name__ == "__main__":
+    main()
