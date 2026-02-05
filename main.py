@@ -14,34 +14,36 @@ from telegram.ext import (
 # CONFIG
 # =========================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-METALS_API_KEY = os.getenv("METALS_API_KEY")
+GOLDAPI_KEY = os.getenv("GOLDAPI_KEY")
 CHAT_ID = os.getenv("CHAT_ID")
 
 # =========================
 # PRICE FETCHERS
 # =========================
 def get_gold_price():
-    if not METALS_API_KEY:
+    if not GOLDAPI_KEY:
         return None, None, None
 
-    url = "https://api.metals.live/v1/spot/gold"
-    headers = {"User-Agent": "Mozilla/5.0"}
+    url = "https://www.goldapi.io/api/XAU/USD"
+    headers = {"x-access-token": GOLDAPI_KEY}
+
     r = requests.get(url, headers=headers, timeout=10)
-    data = r.json()[0]
+    data = r.json()
 
     return data["price"], data["ch"], data["chp"]
-
 
 def get_silver_price():
-    if not METALS_API_KEY:
+    if not GOLDAPI_KEY:
         return None, None, None
 
-    url = "https://api.metals.live/v1/spot/silver"
-    headers = {"User-Agent": "Mozilla/5.0"}
+    url = "https://www.goldapi.io/api/XAG/USD"
+    headers = {"x-access-token": GOLDAPI_KEY}
+
     r = requests.get(url, headers=headers, timeout=10)
-    data = r.json()[0]
+    data = r.json()
 
     return data["price"], data["ch"], data["chp"]
+
 
 # =========================
 # COMMAND HANDLERS
