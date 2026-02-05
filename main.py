@@ -9,8 +9,9 @@ def get_silver_price():
 
     r = requests.get(url, headers=headers, timeout=10)
     data = r.json()
-
-    return data["price"], data["ch"], data["chp"]import os
+    
+import os
+    return data["price"], data["ch"], data["chp"]
 import requests
 from telegram.ext import Updater, CommandHandler
 
