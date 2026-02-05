@@ -23,8 +23,18 @@ def start(update, context):
 
 def price(update, context):
     try:
-        url = "https://api.metals.live/v1/spot"
-        r = requests.get(url, timeout=10)
+        api_key = os.environ.get("GOLDAPI_KEY")
+        if not api_key:
+            update.message.reply_text("❌ API key not set.")
+            return
+
+        url = "https://www.goldapi.io/api/XAU/USD"
+        headers = {
+            "x-access-token": api_key,
+            "Content-Type": "application/json"
+        }
+
+        r = requests.get(url, headers=headers, timeout=10)
 
         if r.status_code != 200:
             update.message.reply_text("⚠️ Price service unavailable.")
@@ -32,20 +42,17 @@ def price(update, context):
 
         data = r.json()
 
-        # data example: [["gold", 2034.5], ["silver", 22.8]]
-        gold_price = None
-        for item in data:
-            if item[0] == "gold":
-                gold_price = item[1]
-                break
+        price = data.get("price")
+        change = data.get("ch")
+        change_pct = data.get("chp")
 
-        if gold_price is None:
-            update.message.reply_text("⚠️ Gold price not found.")
-            return
-
-        update.message.reply_text(
-            f"🟡 Gold Price (US Spot)\n💵 ${gold_price}"
+        msg = (
+            f"🟡 Gold Price (US)\n"
+            f"💵 ${price}\n"
+            f"📉 24h Change: {change} ({change_pct}%)"
         )
+
+        update.message.reply_text(msg)
 
     except Exception as e:
         update.message.reply_text(f"❌ Error:\n{e}")
